@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>
+            Send Files
+        </title>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+        <script>
+
+            $(document).ready(function () {
+
+                function afterSubfolderCreated(fileDesc) {
+                    console.log(fileDesc);
+                    console.log(allFiles);
+                    //alert('aftersub: ' + fileDesc);
+                    numUploads.total = allFiles.length;
+                    $('#progressbar').progressbar({
+                        value: false
+                    });
+                    $(".progress-label").html('Preparing files for upload');
+                    for (var i = 0; i < allFiles.length; i++) {
+                        console.log(i);
+                        //alert('afterSubfolderCreated all file desc: ' + allFiles[i].name);
+                        sendFileToDrive(allFiles[i], fileDesc);
+                        //subfolderId);
+                    }
+                }
+
+                function sendFileToDrive(file,fileDesc) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        var content = reader.result;
+                        console.log('Sending ' + file.name);
+                        //alert('sendFileToDrive: ' + file.name);
+                        google.script.run.withSuccessHandler(updateProgressbar).uploadFileToDrive(content, file.name, fileDesc);
+                    }
+                    reader.readAsDataURL(file);
+                }
+
+                function updateProgressbar(idUpdate) {
+                    console.log('Received: ' + idUpdate);
+                    numUploads.done++;
+                    var porc = Math.ceil((numUploads.done / numUploads.total) * 100);
+                    $("#progressbar").progressbar({value: porc});
+                    $(".progress-label").text(numUploads.done + '/' + numUploads.total);
+                    if (numUploads.done == numUploads.total) {
+                        numUploads.done = 0;
+                        $(".progress-label").text($(".progress-label").text() + ': FINISHED!');
+                        $("#progressbar").after('(Optional) Refresh this page if you want to add more images.');//<a href="javascript:window.top.location.href=window.top.location.href"> does not work
+                    }
+                }
+
+                function fileUploaded(status) {
+                    document.getElementById('myForm').style.display = 'none';
+                    document.getElementById('output').innerHTML = status;
+                }
+                var numUploads = {};
+                numUploads.done = 0;
+                numUploads.total = 0;
+                var allFiles;
+                var frm = $('#myForm');
+
+                frm.submit(function () {
+                    allFiles = document.getElementById('myFile').files;
+                    if (!frm.checkValidity || frm.checkValidity()) {
+                        if (allFiles.length == 0) {
+                            alert('Error: Please choose at least 1 file to upload.');
+                            return false;
+                        } else {
+                            frm.hide();
+                            var uploadedby = document.getElementById('myName').value;
+                            //alert('uploadedby: ' + uploadedby);
+                            $.ajax({
+                                url: '',//URL of webhook endpoint for sending a Slack notification
+                                data: {
+                                     title: uploadedby + ' is uploading screenshots',
+                                     message: ''
+                                }
+                            });
+                            google.script.run.withSuccessHandler(afterSubfolderCreated(uploadedby)).createSubfolder();
+                            return false;
+                        }
+                    } else {
+                        alert('Invalid form');
+                        return false;
+                    }
+                });
+            });//end docReady
+        </script>
+        <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+        <style>
+            body {
+                padding: 20px;
+                margin: auto;
+                font-size: 20px;
+            }
+            label{
+                font-weight: bold;
+            }
+            input{
+                font-size: 20px;
+                padding: 5px;
+                display: inline-block;
+                margin-bottom: 10px;
+                -webkit-box-sizing: border-box;
+                ‌-moz-box-sizing: border-box;
+                box-sizing: border-box;
+            }
+            .hint{
+                font-size: 90%;
+                color: #666;
+            }
+            select {
+                margin: 5px 0px 15px 0px;
+            }
+            input[type="file"] {
+                padding: 5px 0px 15px 0px;
+            }
+            #progressbar{
+                width: 100%;
+                text-align: center;
+                overflow: hidden;
+                position: relative;
+                vertical-align: middle;
+            }
+            .progress-label {
+                float: left;
+                margin-top: 5px;
+                font-weight: bold;
+                text-shadow: 1px 1px 0 #fff;
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                vertical-align: middle;
+            }
+            li{
+               padding: 10px;
+            }
+            @media only screen and (max-width : 520px) {
+                #logo {
+                    max-width: 100%;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <p>
+            <img src="" id="logo">
+        </p>
+         <form id="myForm">
+            <div>
+                <label for="myName">Name/Company and a short description:</label>
+            </div>
+            <div>
+                <input type="text" name="myName" id="myName" placeholder="CDMN Images from meetup" value="">
+                </div>
+            <div style="margin-top: 20px;">
+                <label for="myFile">Image files:</label>
+
+                <input type="file" name="filename" id="myFile" multiple>
+            </div>
+            <div style="margin-top: 20px;">
+                <input type="submit" value="Send File(s) ➔" >
+            </div>
+        </form>
+
+        <div id="output"></div>
+        <div id="progressbar">
+            <div class="progress-label"></div>
+        </div>
+
+
+    </body>
+</html>
